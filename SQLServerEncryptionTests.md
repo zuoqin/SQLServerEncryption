@@ -8,7 +8,7 @@
 
 
 ## Initiate database backup
-
+```
 USE [master];
 GO 
 
@@ -55,45 +55,45 @@ ALTER DATABASE [hrms]
   SET ENCRYPTION ON;
 GO 
 
----
+```
 
 This starts the encryption process on the database. Note the password specified for the database master key. As is implied, when we go to do the restore on the second server, we will going to use a different password. Having the same password is not required, but having the same certificate is.
 
 Even on databases that are basically empty, it does take a few seconds to encrypt the database. Check the status of the encryption with the following query:
 
-
+```
 -- We're looking for encryption_state = 3
 -- Query periodically until you see that state
 -- It shouldn't take long
 SELECT DB_Name(database_id) AS 'Database', encryption_state 
 FROM sys.dm_database_encryption_keys;
-
+```
 
 As the comments indicate, we're looking for our database to show a state of 3, meaning the encryption is finished: 
 
 ![Successfully encrypted](slides/images/RecoveringTDESuccessfully_VerifyTDEIsDone.png)
 
 When the encryption_state shows as 3, can take a backup of the database, because we'll need it for the restore to the second server:
-
+```
 -- Now backup the database so we can restore it
 -- Onto a second server
 BACKUP DATABASE [hrms]
 TO DISK = N'C:\SQLBackups\RecoveryWithTDE_Full.bak';
 GO 
-
+```
 Now that we have the backup, let's restore this backup to a different instance of SQL Server.
 
 ## Failed Restore - No Key, No Certificate
 
 The first scenario for restoring a TDE protected database is the case where we try to do the restore and we have none of the encryption pieces in place. We don't have the database master key and we certainly don't have the certificate. This is why TDE is great. If you don't have these pieces, the restore simply won't work. Let's attempt the restore:
-
+```
 -- Attempt the restore without the certificate installed
 RESTORE DATABASE [hrms]
   FROM DISK = N'C:\SQLBackups\RecoveryWithTDE_Full.bak'
   WITH MOVE 'RecoveryWithTDE' TO N'C:\SQLData\RecoveryWithTDE_2ndServer.mdf',
        MOVE 'RecoveryWithTDE_log' TO N'C:\SQLData\RecoveryWithTDE_2ndServer_log.mdf';
 GO
-
+```
 This will fail. Here's what we see if attempt the restore:
 ![Failed recovery](slides/images/RecoveringTDESuccessfully_FailedRestore.png)
 
@@ -102,7 +102,7 @@ When SQL Server attempts the restore, it recognizes it needs a certificate, a sp
 ## Failed Restore - The Same Certificate Name, But Not the Same Certificate
 
 The second scenario is where the database master key is present and there's a certificate with the same name as the first server (even the same subject), but it wasn't the certificate from the first server. Let's set that up and attempt the restore:
-
+```
 -- Let's create the database master key and a certificate with the same name
 -- But not from the files. Note the difference in passwords
 CREATE MASTER KEY
@@ -120,7 +120,7 @@ RESTORE DATABASE [hrms]
   WITH MOVE 'RecoveryWithTDE' TO N'C:\SQLData\RecoveryWithTDE_2ndServer.mdf',
        MOVE 'RecoveryWithTDE_log' TO N'C:\SQLData\RecoveryWithTDE_2ndServer_log.mdf';
 GO
-
+```
 Note the difference in the password for the database master key. It's different, but that's not the reason we'll fail with respect to the restore. It's the same problem as the previous case: we don't have the correct certificate. As a result, you'll get the same error as in the previous case.
 
 ## Failed Restore - The Right Certificate, but Without the Private Key
@@ -140,7 +140,7 @@ Now you'll turn on inheritance. Note what I've circled. If the box is unchecked,
 ![Inheritance](slides/images/RecoveringTDESuccessfully_TurnOnInheritance.png)
 
 Now let's try to recover the certificate, but intentionally forget to restore with the private key. Before we can create the certificate from the file, we'll have to drop the certificate we just created.
-
+```
 -- Let's drop the certificate and do the restore of it...
 -- But without the private key
 DROP CERTIFICATE TDECert;
@@ -158,7 +158,7 @@ RESTORE DATABASE [hrms]
   WITH MOVE 'RecoveryWithTDE' TO N'C:\SQLData\RecoveryWithTDE_2ndServer.mdf',
        MOVE 'RecoveryWithTDE_log' TO N'C:\SQLData\RecoveryWithTDE_2ndServer_log.mdf';
 GO
-
+```
 We have the right certificate, but without the private key, SQL Server can't use it to decrypt the database. As a result, we get a different error, telling us that there's a problem with the key. The error says the key appears to be corrupt, but we know the real issue: we didn't restore the key.
 
 ![Currupt error](slides/images/RecoveringTDESuccessfully_CorruptKeyError.png)
@@ -171,7 +171,7 @@ In order to perform a successful restore, we'll need the database master key in 
 - The certificate used to encrypt the database is restored along with its private key.
 - The database is restored.
 Since we have the database master key, let's do the final two steps. Of course, since we have to clean up the previous certificate, we'll have a drop certificate in the commands we issue:
-
+```
 -- Let's do this one more time. This time, with everything,
 -- Including the private key.
 DROP CERTIFICATE TDECert;
@@ -193,7 +193,7 @@ RESTORE DATABASE [hrms]
   WITH MOVE 'RecoveryWithTDE' TO N'C:\SQLData\RecoveryWithTDE_2ndServer.mdf',
        MOVE 'RecoveryWithTDE_log' TO N'C:\SQLData\RecoveryWithTDE_2ndServer_log.mdf';
 GO
-
+```
 
 With everything in place, restore successful:
 
