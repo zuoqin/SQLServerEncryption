@@ -8,7 +8,7 @@
 
 
 ## Initiate database backup
-```
+```sql
 USE [master];
 GO 
 
@@ -61,7 +61,7 @@ This starts the encryption process on the database. Note the password specified 
 
 Even on databases that are basically empty, it does take a few seconds to encrypt the database. Check the status of the encryption with the following query:
 
-```
+```sql
 -- We're looking for encryption_state = 3
 -- Query periodically until you see that state
 -- It shouldn't take long
@@ -74,7 +74,7 @@ As the comments indicate, we're looking for our database to show a state of 3, m
 ![Successfully encrypted](slides/images/RecoveringTDESuccessfully_VerifyTDEIsDone.png)
 
 When the encryption_state shows as 3, can take a backup of the database, because we'll need it for the restore to the second server:
-```
+```sql
 -- Now backup the database so we can restore it
 -- Onto a second server
 BACKUP DATABASE [hrms]
@@ -86,7 +86,7 @@ Now that we have the backup, let's restore this backup to a different instance o
 ## Failed Restore - No Key, No Certificate
 
 The first scenario for restoring a TDE protected database is the case where we try to do the restore and we have none of the encryption pieces in place. We don't have the database master key and we certainly don't have the certificate. This is why TDE is great. If you don't have these pieces, the restore simply won't work. Let's attempt the restore:
-```
+```sql
 -- Attempt the restore without the certificate installed
 RESTORE DATABASE [hrms]
   FROM DISK = N'C:\SQLBackups\RecoveryWithTDE_Full.bak'
@@ -102,7 +102,7 @@ When SQL Server attempts the restore, it recognizes it needs a certificate, a sp
 ## Failed Restore - The Same Certificate Name, But Not the Same Certificate
 
 The second scenario is where the database master key is present and there's a certificate with the same name as the first server (even the same subject), but it wasn't the certificate from the first server. Let's set that up and attempt the restore:
-```
+```sql
 -- Let's create the database master key and a certificate with the same name
 -- But not from the files. Note the difference in passwords
 CREATE MASTER KEY
@@ -140,7 +140,7 @@ Now you'll turn on inheritance. Note what I've circled. If the box is unchecked,
 ![Inheritance](slides/images/RecoveringTDESuccessfully_TurnOnInheritance.png)
 
 Now let's try to recover the certificate, but intentionally forget to restore with the private key. Before we can create the certificate from the file, we'll have to drop the certificate we just created.
-```
+```sql
 -- Let's drop the certificate and do the restore of it...
 -- But without the private key
 DROP CERTIFICATE TDECert;
@@ -171,7 +171,7 @@ In order to perform a successful restore, we'll need the database master key in 
 - The certificate used to encrypt the database is restored along with its private key.
 - The database is restored.
 Since we have the database master key, let's do the final two steps. Of course, since we have to clean up the previous certificate, we'll have a drop certificate in the commands we issue:
-```
+```sql
 -- Let's do this one more time. This time, with everything,
 -- Including the private key.
 DROP CERTIFICATE TDECert;
