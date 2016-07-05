@@ -69,4 +69,4 @@ FROM sys.dm_database_encryption_keys;
 
 As the comments indicate, we're looking for our database to show a state of 3, meaning the encryption is finished: 
 
-![Successfully encrypted](output/images/RecoveringTDESuccessfully_VerifyTDEIsDone.png)
+![Successfully encrypted](slides/images/RecoveringTDESuccessfully_VerifyTDEIsDone.png)
